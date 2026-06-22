@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LIMM Chrono</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f7f4ed">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LIMM Chrono">
+<style>
+  :root {
+    --bg: #f7f4ed;
+    --panel: #ffffff;
+    --panel-light: #f0ece2;
+    --text: #2e2b28;
+    --text-dim: #8a8378;
+    --accent: #ef8354;
+    --accent-dim: #f6d9c8;
+    --mint: #9bcbb5;
+    --mint-dark: #5fa589;
+    --pause: #e0b13c;
+    --stop: #d9534f;
+    --border: #e6e0d3;
+    font-size: 16px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    padding: 0 0 40px 0;
+  }
+  header {
+    padding: 24px 20px 12px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    color: var(--mint-dark);
+  }
+  header h1 span { color: var(--accent); }
+  main { max-width: 480px; margin: 0 auto; padding: 0 16px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 10px rgba(46, 43, 40, 0.04);
+  }
+  .clock-display { text-align: center; padding: 20px 0 8px; }
+  .clock-time {
+    font-size: 3.2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+  .clock-status { margin-top: 6px; font-size: 0.95rem; color: var(--text-dim); }
+  .clock-status.running { color: var(--mint-dark); }
+  .clock-status.paused { color: var(--pause); }
+  .pause-time {
+    margin-top: 10px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--pause);
+    font-variant-numeric: tabular-nums;
+  }
+  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 14px;
+    padding: 18px 12px;
+    cursor: pointer;
+    color: #fff;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.05s ease, opacity 0.15s ease;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-start { background: var(--mint-dark); grid-column: span 2; font-size: 1.15rem; padding: 20px 12px; }
+  .btn-pause { background: var(--pause); color: #4a3a10; }
+  .btn-stop { background: var(--stop); grid-column: span 2; }
+  .hidden { display: none !important; }
+  .card-title { font-size: 1rem; color: var(--mint-dark); margin: 0 0 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .month-block { margin-bottom: 20px; }
+  .month-block:last-child { margin-bottom: 0; }
+  .month-header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px; border-bottom: 2px solid var(--mint); margin-bottom: 10px; }
+  .month-name { font-weight: 700; font-size: 1.05rem; text-transform: capitalize; color: var(--text); }
+  .month-total { font-weight: 700; font-size: 1rem; font-variant-numeric: tabular-nums; color: var(--mint-dark); }
+  .session-row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 0.9rem; gap: 4px; border-bottom: 1px solid var(--border); }
+  .session-row:last-child { border-bottom: none; }
+  .session-time { color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .session-time.crosses-midnight { font-size: 0.82rem; white-space: normal; }
+  .session-duration { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; white-space: nowrap; }
+  .month-empty { color: var(--text-dim); font-size: 0.85rem; font-style: italic; padding: 4px 0; }
+  .history-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; }
+  .history-header-row .card-title { margin: 0; }
+  .btn-add-session { background: var(--panel-light); border: 1px solid var(--border); color: var(--mint-dark); font-size: 0.8rem; padding: 8px 14px; border-radius: 10px; font-weight: 600; }
+  .session-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .session-action-btn { background: transparent; border: none; font-size: 0.95rem; padding: 4px 6px; border-radius: 8px; line-height: 1; color: var(--text); }
+  .session-action-btn:active { background: var(--panel-light); }
+  .session-edit-form { background: var(--panel-light); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 8px 0; }
+  .session-edit-form .field-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .session-edit-form label { display: block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; }
+  .session-edit-form input[type="time"], .session-edit-form input[type="date"] { width: 100%; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 0.95rem; padding: 10px; border-radius: 10px; outline: none; }
+  .session-edit-form .field-row > div { flex: 1; }
+  .session-edit-form .edit-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .session-edit-form .edit-actions button { flex: 1; padding: 12px; font-size: 0.9rem; }
+  .btn-edit-save { background: var(--mint-dark); }
+  .btn-edit-cancel { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  .btn-edit-error { color: var(--stop); font-size: 0.8rem; margin-top: 6px; }
+  footer { text-align: center; color: var(--text-dim); font-size: 0.75rem; margin-top: 30px; padding: 0 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LIMM <span>Chrono</span></h1>
+</header>
+<main>
+  <div class="card">
+    <div class="clock-display">
+      <div class="clock-time" id="clockTime">00:00:00</div>
+      <div class="clock-status" id="clockStatus">Arrêté</div>
+      <div class="pause-time hidden" id="pauseTimeZone">Pause : <span id="pauseTime">00:00</span></div>
+    </div>
+    <div class="btn-grid">
+      <button class="btn-start" id="btnStart">Démarrer</button>
+      <button class="btn-pause hidden" id="btnPause">Pause</button>
+      <button class="btn-stop hidden" id="btnStop">Arrêter</button>
+    </div>
+  </div>
+  <div class="card" id="historyCard">
+    <div class="history-header-row">
+      <h2 class="card-title">Historique</h2>
+      <button class="btn-add-session" id="btnAddSession">+ Ajouter</button>
+    </div>
+    <div id="historyZone"></div>
+  </div>
+</main>
+<footer>LIMM Chrono — tout reste sur ton téléphone.</footer>
+<script>
+(function() {
+  "use strict";
+  const STORAGE_KEY = "limm_chrono_sessions";
+  function loadSessions() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; } }
+  function saveSessions(sessions) { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); }
+  function deleteSession(id) {
+    const sessions = loadSessions().filter((s) => s.id !== id);
+    saveSessions(sessions);
+  }
+  function updateSession(id, newStartMs, newEndMs) {
+    const sessions = loadSessions();
+    const idx = sessions.findIndex((s) => s.id === id);
+    if (idx === -1) return;
+    sessions[idx].start = newStartMs;
+    sessions[idx].end = newEndMs;
+    sessions[idx].durationMs = newEndMs - newStartMs;
+    saveSessions(sessions);
+  }
+  function addManualSession(startMs, endMs) {
+    const sessions = loadSessions();
+    sessions.push({
+      id: "s_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+      start: startMs,
+      end: endMs,
+      durationMs: endMs - startMs
+    });
+    saveSessions(sessions);
+  }
+  let editingSessionId = null;
+  const CURRENT_KEY = "limm_chrono_current_session";
+  function loadCurrent() { try { return JSON.parse(localStorage.getItem(CURRENT_KEY)) || null; } catch(e) { return null; } }
+  function saveCurrent(session) {
+    if (session === null) localStorage.removeItem(CURRENT_KEY);
+    else localStorage.setItem(CURRENT_KEY, JSON.stringify(session));
+  }
+  let current = loadCurrent();
+  let tickInterval = null;
+  const clockTime = document.getElementById("clockTime");
+  const clockStatus = document.getElementById("clockStatus");
+  const btnStart = document.getElementById("btnStart");
+  const btnPause = document.getElementById("btnPause");
+  const btnStop = document.getElementById("btnStop");
+  const pauseTimeZone = document.getElementById("pauseTimeZone");
+  const pauseTime = document.getElementById("pauseTime");
+  const historyZone = document.getElementById("historyZone");
+  const btnAddSession = document.getElementById("btnAddSession");
+  function formatHMS(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return [h, m, sec].map(v => String(v).padStart(2, "0")).join(":");
+  }
+  function formatMS(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return [m, sec].map(v => String(v).padStart(2, "0")).join(":");
+  }
+  function elapsedMs(session) {
+    const now = Date.now();
+    let pauseTotal = session.accumulatedPauseMs || 0;
+    if (session.pausedAt) pauseTotal += now - session.pausedAt;
+    return now - session.start - pauseTotal;
+  }
+  function monthKey(timestamp) {
+    const d = new Date(timestamp);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+  }
+  const MONTH_NAMES = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+  function formatMonthLabel(key) {
+    const [y, m] = key.split("-");
+    return MONTH_NAMES[parseInt(m, 10) - 1] + " " + y;
+  }
+  function formatClockHM(timestamp) { const d = new Date(timestamp); return String(d.getHours()).padStart(2,"0") + "h" + String(d.getMinutes()).padStart(2,"0"); }
+  function formatDateShort(timestamp) { const d = new Date(timestamp); return d.getDate() + " " + MONTH_NAMES[d.getMonth()].slice(0, 3); }
+  function sameDay(ts1, ts2) {
+    const d1 = new Date(ts1), d2 = new Date(ts2);
+    return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+  }
+  function formatSessionTimeRange(session) {
+    if (sameDay(session.start, session.end)) {
+      return { text: formatClockHM(session.start) + " → " + formatClockHM(session.end), crosses: false };
+    }
+    return { text: formatDateShort(session.start) + " " + formatClockHM(session.start) + " → " + formatDateShort(session.end) + " " + formatClockHM(session.end), crosses: true };
+  }
+  function formatDurationLabel(ms) {
+    const totalMin = Math.round(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h === 0) return m + "min";
+    if (m === 0) return h + "h";
+    return h + "h" + String(m).padStart(2, "0");
+  }
+  function timestampToDateInput(ts) {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+  function timestampToTimeInput(ts) {
+    const d = new Date(ts);
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function dateAndTimeInputToTimestamp(dateStr, timeStr) {
+    if (!dateStr || !timeStr) return null;
+    const d = new Date(dateStr + "T" + timeStr + ":00");
+    if (isNaN(d.getTime())) return null;
+    return d.getTime();
+  }
+  function buildEditForm(session) {
+    const isNew = !session;
+    const form = document.createElement("div");
+    form.className = "session-edit-form";
+
+    const row = document.createElement("div");
+    row.className = "field-row";
+
+    const startWrap = document.createElement("div");
+    const startDateLabel = document.createElement("label");
+    startDateLabel.textContent = "Début";
+    const startDateInput = document.createElement("input");
+    startDateInput.type = "date";
+    const startTimeInput = document.createElement("input");
+    startTimeInput.type = "time";
+    startTimeInput.style.marginTop = "6px";
+
+    const endWrap = document.createElement("div");
+    const endDateLabel = document.createElement("label");
+    endDateLabel.textContent = "Fin";
+    const endDateInput = document.createElement("input");
+    endDateInput.type = "date";
+    const endTimeInput = document.createElement("input");
+    endTimeInput.type = "time";
+    endTimeInput.style.marginTop = "6px";
+
+    if (!isNew) {
+      startDateInput.value = timestampToDateInput(session.start);
+      startTimeInput.value = timestampToTimeInput(session.start);
+      endDateInput.value = timestampToDateInput(session.end);
+      endTimeInput.value = timestampToTimeInput(session.end);
+    } else {
+      const todayStr = timestampToDateInput(Date.now());
+      startDateInput.value = todayStr;
+      endDateInput.value = todayStr;
+    }
+
+    startWrap.appendChild(startDateLabel);
+    startWrap.appendChild(startDateInput);
+    startWrap.appendChild(startTimeInput);
+    endWrap.appendChild(endDateLabel);
+    endWrap.appendChild(endDateInput);
+    endWrap.appendChild(endTimeInput);
+    row.appendChild(startWrap);
+    row.appendChild(endWrap);
+
+    const errorEl = document.createElement("div");
+    errorEl.className = "btn-edit-error hidden";
+
+    const actions = document.createElement("div");
+    actions.className = "edit-actions";
+
+    const btnSave = document.createElement("button");
+    btnSave.className = "btn-edit-save";
+    btnSave.textContent = "Valider";
+
+    const btnCancel = document.createElement("button");
+    btnCancel.className = "btn-edit-cancel";
+    btnCancel.textContent = "Annuler";
+
+    btnCancel.addEventListener("click", () => {
+      editingSessionId = null;
+      renderHistory();
+    });
+
+    btnSave.addEventListener("click", () => {
+      const startMs = dateAndTimeInputToTimestamp(startDateInput.value, startTimeInput.value);
+      const endMs = dateAndTimeInputToTimestamp(endDateInput.value, endTimeInput.value);
+
+      if (startMs === null || endMs === null) {
+        errorEl.textContent = "Merci de renseigner une date et une heure valides.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+      if (endMs <= startMs) {
+        errorEl.textContent = "L'heure de fin doit être après l'heure de début.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      if (isNew) {
+        addManualSession(startMs, endMs);
+      } else {
+        updateSession(session.id, startMs, endMs);
+      }
+
+      editingSessionId = null;
+      renderHistory();
+    });
+
+    actions.appendChild(btnSave);
+    actions.appendChild(btnCancel);
+
+    form.appendChild(row);
+    form.appendChild(errorEl);
+    form.appendChild(actions);
+
+    return form;
+  }
+  function renderHistory() {
+    const sessions = loadSessions();
+    const byMonth = {};
+    sessions.forEach(s => {
+      const key = monthKey(s.start);
+      if (!byMonth[key]) byMonth[key] = [];
+      byMonth[key].push(s);
+    });
+    const monthKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+    historyZone.innerHTML = "";
+    if (editingSessionId === "new") {
+      historyZone.appendChild(buildEditForm(null));
+    }
+    if (monthKeys.length === 0 && editingSessionId !== "new") {
+      const empty = document.createElement("div");
+      empty.className = "month-empty";
+      empty.textContent = "Aucune session enregistrée pour l'instant.";
+      historyZone.appendChild(empty);
+      return;
+    }
+    monthKeys.forEach(key => {
+      const monthSessions = byMonth[key].slice().sort((a, b) => b.start - a.start);
+      const monthTotalMs = monthSessions.reduce((sum, s) => sum + s.durationMs, 0);
+      const monthBlock = document.createElement("div");
+      monthBlock.className = "month-block";
+      const header = document.createElement("div");
+      header.className = "month-header";
+      const nameEl = document.createElement("div");
+      nameEl.className = "month-name";
+      nameEl.textContent = formatMonthLabel(key);
+      const totalEl = document.createElement("div");
+      totalEl.className = "month-total";
+      totalEl.textContent = formatDurationLabel(monthTotalMs);
+      header.appendChild(nameEl);
+      header.appendChild(totalEl);
+      monthBlock.appendChild(header);
+      monthSessions.forEach(s => {
+        if (editingSessionId === s.id) {
+          monthBlock.appendChild(buildEditForm(s));
+          return;
+        }
+        const row = document.createElement("div");
+        row.className = "session-row";
+        const range = formatSessionTimeRange(s);
+        const timeEl = document.createElement("div");
+        timeEl.className = "session-time" + (range.crosses ? " crosses-midnight" : "");
+        timeEl.textContent = range.text;
+        const durEl = document.createElement("div");
+        durEl.className = "session-duration";
+        durEl.textContent = formatDurationLabel(s.durationMs);
+        const actionsEl = document.createElement("div");
+        actionsEl.className = "session-actions";
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "session-action-btn";
+        btnEdit.textContent = "✏️";
+        btnEdit.addEventListener("click", () => {
+          editingSessionId = s.id;
+          renderHistory();
+        });
+        const btnDelete = document.createElement("button");
+        btnDelete.className = "session-action-btn";
+        btnDelete.textContent = "🗑️";
+        btnDelete.addEventListener("click", () => {
+          if (confirm("Supprimer cette session (" + range.text + ", " + formatDurationLabel(s.durationMs) + ") ?")) {
+            deleteSession(s.id);
+            renderHistory();
+          }
+        });
+        actionsEl.appendChild(btnEdit);
+        actionsEl.appendChild(btnDelete);
+        row.appendChild(timeEl);
+        row.appendChild(durEl);
+        row.appendChild(actionsEl);
+        monthBlock.appendChild(row);
+      });
+      historyZone.appendChild(monthBlock);
+    });
+  }
+  function render() {
+    if (!current) {
+      clockTime.textContent = "00:00:00";
+      clockStatus.textContent = "Arrêté";
+      clockStatus.className = "clock-status";
+      pauseTimeZone.classList.add("hidden");
+      btnStart.classList.remove("hidden");
+      btnPause.classList.add("hidden");
+      btnStop.classList.add("hidden");
+    } else {
+      clockTime.textContent = formatHMS(elapsedMs(current) / 1000);
+      if (current.pausedAt) {
+        clockStatus.textContent = "En pause";
+        clockStatus.className = "clock-status paused";
+        btnPause.textContent = "Reprendre";
+        pauseTimeZone.classList.remove("hidden");
+        pauseTime.textContent = formatMS((Date.now() - current.pausedAt) / 1000);
+      } else {
+        clockStatus.textContent = "En cours";
+        clockStatus.className = "clock-status running";
+        btnPause.textContent = "Pause";
+        pauseTimeZone.classList.add("hidden");
+      }
+      btnStart.classList.add("hidden");
+      btnPause.classList.remove("hidden");
+      btnStop.classList.remove("hidden");
+    }
+  }
+  function startTicking() {
+    if (tickInterval) clearInterval(tickInterval);
+    tickInterval = setInterval(() => {
+      if (current && !current.pausedAt) { clockTime.textContent = formatHMS(elapsedMs(current) / 1000); }
+      if (current && current.pausedAt) { pauseTime.textContent = formatMS((Date.now() - current.pausedAt) / 1000); }
+    }, 1000);
+  }
+  function finalizeCurrentSession() {
+    const sessions = loadSessions();
+    const endTime = Date.now();
+    const totalMs = elapsedMs(current);
+    sessions.push({ id: current.id, start: current.start, end: endTime, durationMs: totalMs });
+    saveSessions(sessions);
+    return endTime;
+  }
+  function handleStart() {
+    current = { id: "s_" + Date.now(), start: Date.now(), pausedAt: null, accumulatedPauseMs: 0 };
+    saveCurrent(current);
+    render();
+    renderHistory();
+  }
+  function handlePauseToggle() {
+    if (!current) return;
+    if (current.pausedAt) { current.accumulatedPauseMs = (current.accumulatedPauseMs || 0) + (Date.now() - current.pausedAt); current.pausedAt = null; }
+    else { current.pausedAt = Date.now(); }
+    saveCurrent(current);
+    render();
+  }
+  function handleStop() {
+    if (!current) return;
+    if (current.pausedAt) { current.accumulatedPauseMs = (current.accumulatedPauseMs || 0) + (Date.now() - current.pausedAt); current.pausedAt = null; }
+    finalizeCurrentSession();
+    current = null;
+    saveCurrent(null);
+    render();
+    renderHistory();
+  }
+  btnStart.addEventListener("click", handleStart);
+  btnPause.addEventListener("click", handlePauseToggle);
+  btnStop.addEventListener("click", handleStop);
+  btnAddSession.addEventListener("click", () => {
+    editingSessionId = "new";
+    renderHistory();
+  });
+  render();
+  renderHistory();
+  startTicking();
+})();
+</script>
+<script>
+  // Active le mode hors-ligne (PWA) : ce bloc est indépendant du reste de l'application.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("service-worker.js").catch(() => {
+        // Si l'enregistrement échoue (ex: ouverture en local sans https),
+        // l'application continue de fonctionner normalement, juste sans mode hors-ligne.
+      });
+    });
+  }
+</script>
+</body>
+</html>
